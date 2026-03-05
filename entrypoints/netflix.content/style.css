@@ -1,0 +1,12 @@
+/* Minimal global styles — most styling is inside Shadow DOM */
+nfr-badge {
+  display: block;
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  z-index: 10;
+}
+
+nfr-review-panel {
+  display: block;
+}

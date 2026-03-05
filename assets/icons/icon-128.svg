@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#141414"/>
+  <text x="64" y="52" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="28" fill="#e50914">NR</text>
+  <text x="34" y="82" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="18" fill="#f5c518">8.5</text>
+  <text x="94" y="82" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="18" fill="#67ad4b">92%</text>
+</svg>

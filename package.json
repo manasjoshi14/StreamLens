@@ -1,0 +1,27 @@
+{
+  "name": "streamlens",
+  "description": "Browser extension that overlays IMDB and Rotten Tomatoes ratings on Netflix tiles",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:safari": "wxt -b safari",
+    "build": "wxt build",
+    "build:safari": "wxt build -b safari",
+    "zip": "wxt zip",
+    "zip:safari": "wxt zip -b safari",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "wxt": "^0.20.18"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "spawn-sync"]
+  }
+}

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./style.css" />
+    <title>StreamLens</title>
+  </head>
+  <body>
+    <div id="app">
+      <!-- Wizard -->
+      <div id="wizard" class="hidden">
+        <h1>StreamLens</h1>
+        <p class="subtitle">Set up your API keys to get started</p>
+
+        <div id="wizard-step-1" class="wizard-step">
+          <h2>Step 1: OMDb API Key</h2>
+          <p>Get a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank">omdbapi.com</a></p>
+          <input type="text" id="wizard-omdb" placeholder="Enter OMDb API key" />
+        </div>
+
+        <div id="wizard-step-2" class="wizard-step hidden">
+          <h2>Step 2: TMDB API Key</h2>
+          <p>Get a free key at <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org</a></p>
+          <input type="text" id="wizard-tmdb" placeholder="Enter TMDB API key" />
+        </div>
+
+        <div class="wizard-buttons">
+          <button id="wizard-back" class="btn secondary hidden">Back</button>
+          <button id="wizard-next" class="btn primary">Next</button>
+        </div>
+
+        <div id="wizard-error" class="error hidden"></div>
+      </div>
+
+      <!-- Main -->
+      <div id="main" class="hidden">
+        <div class="header">
+          <h1>StreamLens</h1>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-enabled" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-value" id="cache-count">-</span>
+            <span class="stat-label">Cached</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="api-calls">-</span>
+            <span class="stat-label">API Calls Today</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="remaining">-</span>
+            <span class="stat-label">Remaining</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="clear-cache" class="btn secondary">Clear Cache</button>
+          <button id="edit-keys" class="btn secondary">Edit API Keys</button>
+        </div>
+
+        <!-- Key Editor -->
+        <div id="key-editor" class="hidden">
+          <div class="field">
+            <label>OMDb API Key</label>
+            <input type="text" id="edit-omdb" />
+          </div>
+          <div class="field">
+            <label>TMDB API Key</label>
+            <input type="text" id="edit-tmdb" />
+          </div>
+          <button id="save-keys" class="btn primary">Save Keys</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

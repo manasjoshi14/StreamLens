@@ -1,0 +1,11 @@
+node_modules/
+.output/
+.wxt/
+xcode-project/
+dist/
+StreamLens/
+*.xcodeproj/
+*.xcworkspace/
+.env
+.env.local
+.DS_Store
