@@ -25,7 +25,7 @@ Built collaboratively with [Claude Code](https://claude.ai/claude-code).
 ### Setup
 
 ```bash
-git clone <repo-url> && cd streamlens
+git clone https://github.com/manasjoshi14/StreamLens.git && cd StreamLens
 pnpm install
 ```
 
@@ -54,12 +54,11 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 ```
 
 After the app launches:
-1. Safari → Settings → **Developer** → check **Allow unsigned extensions**
-2. Safari → Settings → **Extensions** → enable **StreamLens**
-3. Grant permissions for netflix.com when prompted
-4. Open Netflix — click the extension icon in the toolbar to enter your API keys
+1. Safari → Settings → **Extensions** → enable **StreamLens**
+2. Grant permissions for netflix.com when prompted
+3. Open Netflix — click the extension icon in the toolbar to enter your API keys
 
-> **Note:** "Allow unsigned extensions" resets every time Safari restarts. You'll need to re-enable it each session.
+> **Signing:** The build script auto-detects an Apple Development certificate and signs the app so it persists across Safari restarts. If you don't have one, set it up once in Xcode → Settings → Accounts → sign in with your Apple ID → Manage Certificates → **+** → Apple Development. Without a certificate, Safari requires re-enabling **Allow unsigned extensions** (Developer menu) every session.
 
 ## Development
 
@@ -79,7 +78,7 @@ Load the dev extension from `.output/chrome-mv3-dev/` in Chrome's extension mana
 ## How It Works
 
 1. Content script detects Netflix title tiles via MutationObserver
-2. IntersectionObserver + scroll debounce triggers fetches only for visible tiles
+2. Hover injector listens for `mouseenter` on tiles and the detail modal (jbv), with context-aware deduplication and cooldowns to avoid redundant fetches
 3. Background script queries OMDb API for ratings (IMDB, RT, Metacritic)
 4. Three-tier cache (memory LRU → storage.local → API) minimizes API calls
 5. Badges injected via Shadow DOM to prevent CSS interference
@@ -90,7 +89,7 @@ Load the dev extension from `.output/chrome-mv3-dev/` in Chrome's extension mana
 ```
 Content Script (netflix.com)          Background Service Worker
 ├─ MutationObserver                   ├─ Message Handler
-├─ IntersectionObserver               ├─ Three-tier Cache (LRU + storage + API)
+├─ Hover Injector (dedupe + cooldown) ├─ Three-tier Cache (LRU + storage + API)
 ├─ Title Extractor                    ├─ OMDb API Client
 ├─ Badge Overlay (Shadow DOM)         ├─ TMDB Reviews Client
 └─ Review Panel (Shadow DOM)          └─ In-flight Request Dedup

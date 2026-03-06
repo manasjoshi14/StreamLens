@@ -34,15 +34,49 @@ echo "==> Fixing bundle identifier casing..."
 PBXPROJ="$PROJ/project.pbxproj"
 sed -i '' "s/com\.manas\.streamlens\.Extension/${BUNDLE_ID}.Extension/g" "$PBXPROJ"
 
-# 5. Build
+# 5. Detect code signing identity and inject into project
+SIGNED=false
+
+IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+  | grep "Apple Development" | head -1 \
+  | sed 's/.*"\(.*\)".*/\1/' || true)
+
+if [ -n "$IDENTITY" ]; then
+  TEAM_ID=$(security find-certificate -a -c "Apple Development" -p ~/Library/Keychains/login.keychain-db 2>/dev/null \
+    | openssl x509 -noout -subject 2>/dev/null \
+    | sed 's/.*OU=\([A-Z0-9]*\).*/\1/')
+  if [ -n "$TEAM_ID" ]; then
+    echo "==> Signing with: $IDENTITY (Team: $TEAM_ID)"
+    sed -i '' "s/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Automatic;\\
+				CODE_SIGN_IDENTITY = \"Apple Development\";\\
+				DEVELOPMENT_TEAM = $TEAM_ID;/g" "$PBXPROJ"
+    SIGNED=true
+  fi
+fi
+
+if [ "$SIGNED" = false ]; then
+  echo "==> No signing identity found — building unsigned."
+  echo "    To sign (removes 'Allow unsigned extensions' requirement):"
+  echo "    Xcode > Settings > Accounts > + > Apple ID > Manage Certificates > + > Apple Development"
+fi
+
+# 6. Build
 echo "==> Building with xcodebuild..."
-xcodebuild \
+BUILD_OUTPUT=$(xcodebuild \
   -project "$PROJ" \
   -scheme "$APP_NAME" \
   -configuration Debug \
-  build 2>&1 | grep -E "^(\*\*|error:)" || true
+  build 2>&1)
 
-# Check if build succeeded
+echo "$BUILD_OUTPUT" | grep -E "^(\*\*|error:)" || true
+
+if echo "$BUILD_OUTPUT" | grep -q "BUILD FAILED"; then
+  echo ""
+  echo "ERROR: Build failed. Run xcodebuild manually for full output:"
+  echo "  xcodebuild -project \"$PROJ\" -scheme \"$APP_NAME\" -configuration Debug build"
+  exit 1
+fi
+
 BUILD_DIR=$(xcodebuild \
   -project "$PROJ" \
   -scheme "$APP_NAME" \
@@ -52,20 +86,20 @@ BUILD_DIR=$(xcodebuild \
 
 APP_PATH="$BUILD_DIR/$APP_NAME.app"
 
-if [ ! -d "$APP_PATH" ]; then
-  echo "ERROR: Build failed. Run xcodebuild manually for full output:"
-  echo "  xcodebuild -project \"$PROJ\" -scheme \"$APP_NAME\" -configuration Debug build"
-  exit 1
-fi
-
 echo ""
 echo "==> Build succeeded!"
 echo ""
-echo "Launching app... After it opens:"
-echo "  1. Safari > Settings > Advanced > 'Show features for web developers'"
-echo "  2. Develop > Allow Unsigned Extensions"
-echo "  3. Safari > Settings > Extensions > Enable '$APP_NAME'"
-echo "  4. Grant permissions for netflix.com when prompted"
+if [ "$SIGNED" = true ]; then
+  echo "Launching app (signed — no 'Allow unsigned extensions' needed)..."
+  echo "  1. Safari > Settings > Extensions > Enable '$APP_NAME'"
+  echo "  2. Grant permissions for netflix.com when prompted"
+else
+  echo "Launching app... After it opens:"
+  echo "  1. Safari > Settings > Advanced > 'Show features for web developers'"
+  echo "  2. Develop > Allow Unsigned Extensions"
+  echo "  3. Safari > Settings > Extensions > Enable '$APP_NAME'"
+  echo "  4. Grant permissions for netflix.com when prompted"
+fi
 echo ""
 
 open "$APP_PATH"
