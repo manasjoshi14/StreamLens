@@ -1,4 +1,5 @@
 import type { RatingsData, BadgeState } from '../../lib/types';
+import { escapeHtml } from '../../lib/sanitize';
 import { markProcessed } from './tile-detector';
 import { imdbIcon, rtIcon, mcIcon, scoreToColor } from './icons';
 
@@ -103,19 +104,19 @@ function createBadgeHTML(state: BadgeState, data?: RatingsData): string {
       const imdbNum = parseScore(data.imdbRating);
       if (imdbNum !== null) {
         const color = scoreToColor(imdbNum * 10);
-        parts.push(`<span class="nfr-score">${imdbIcon(12)}<span style="color:${color}">${data.imdbRating}</span></span>`);
+        parts.push(`<span class="nfr-score">${imdbIcon(12)}<span style="color:${color}">${escapeHtml(data.imdbRating)}</span></span>`);
       }
 
       const rtNum = parseScore(data.rottenTomatoesScore);
       if (rtNum !== null) {
         const color = scoreToColor(rtNum);
-        parts.push(`<span class="nfr-score">${rtIcon(rtNum, 12)}<span style="color:${color}">${data.rottenTomatoesScore}%</span></span>`);
+        parts.push(`<span class="nfr-score">${rtIcon(rtNum, 12)}<span style="color:${color}">${escapeHtml(data.rottenTomatoesScore)}%</span></span>`);
       }
 
       const mcNum = parseScore(data.metacriticScore);
       if (mcNum !== null) {
         const color = scoreToColor(mcNum);
-        parts.push(`<span class="nfr-score">${mcIcon(12)}<span style="color:${color}">${data.metacriticScore}</span></span>`);
+        parts.push(`<span class="nfr-score">${mcIcon(12)}<span style="color:${color}">${escapeHtml(data.metacriticScore)}</span></span>`);
       }
 
       if (parts.length === 0) {

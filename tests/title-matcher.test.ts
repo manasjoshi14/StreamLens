@@ -69,4 +69,12 @@ describe('pickBestMatch', () => {
   it('returns null for empty results', () => {
     expect(pickBestMatch('Inception', undefined, [])).toBeNull();
   });
+
+  it('returns null when best score is below minimum threshold', () => {
+    const unrelated = [
+      { title: 'Jaws', year: '1975', imdbId: 'tt0073195', type: 'movie' },
+      { title: 'Alien', year: '1979', imdbId: 'tt0078748', type: 'movie' },
+    ];
+    expect(pickBestMatch('Stranger Things', undefined, unrelated)).toBeNull();
+  });
 });

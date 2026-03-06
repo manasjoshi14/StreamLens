@@ -50,11 +50,6 @@ async function handleWizardNext() {
   } else {
     const omdbKey = ($('wizard-omdb') as HTMLInputElement).value.trim();
     const tmdbKey = ($('wizard-tmdb') as HTMLInputElement).value.trim();
-    if (!tmdbKey) {
-      errorEl.textContent = 'Please enter your TMDB API key';
-      errorEl.classList.remove('hidden');
-      return;
-    }
     await setApiKeys(omdbKey, tmdbKey);
     $('wizard').classList.add('hidden');
     showMain();

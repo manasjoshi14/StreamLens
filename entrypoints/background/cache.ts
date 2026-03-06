@@ -4,6 +4,16 @@ import { LRU_MAX_ENTRIES, CACHE_TTL_MS, STORAGE_KEYS } from '../../lib/constants
 const memoryCache = new Map<string, CacheEntry<RatingsData>>();
 const noMatchMemoryCache = new Map<string, NoMatchEntry>();
 
+function setNoMatchInMemory(key: string, entry: NoMatchEntry): void {
+  if (noMatchMemoryCache.size >= LRU_MAX_ENTRIES) {
+    const oldest = noMatchMemoryCache.keys().next().value;
+    if (oldest !== undefined) {
+      noMatchMemoryCache.delete(oldest);
+    }
+  }
+  noMatchMemoryCache.set(key, entry);
+}
+
 export function getCacheKey(netflixId?: string, title?: string, year?: string): string {
   if (netflixId) return `nfx:${netflixId}`;
   const normalizedTitle = (title || '').toLowerCase().trim();
@@ -86,6 +96,9 @@ export function getNoMatch(key: string): boolean {
     noMatchMemoryCache.delete(key);
     return false;
   }
+  // Move to end (LRU refresh)
+  noMatchMemoryCache.delete(key);
+  noMatchMemoryCache.set(key, entry);
   return true;
 }
 
@@ -99,7 +112,7 @@ export async function getNoMatchFull(key: string): Promise<boolean> {
       await browser.storage.local.remove(`nomatch:${key}`);
       return false;
     }
-    noMatchMemoryCache.set(key, entry);
+    setNoMatchInMemory(key, entry);
     return true;
   } catch {
     return false;
@@ -108,7 +121,7 @@ export async function getNoMatchFull(key: string): Promise<boolean> {
 
 export async function setNoMatch(key: string): Promise<void> {
   const entry: NoMatchEntry = { noMatch: true, timestamp: Date.now() };
-  noMatchMemoryCache.set(key, entry);
+  setNoMatchInMemory(key, entry);
   try {
     await browser.storage.local.set({ [`nomatch:${key}`]: entry });
   } catch {}

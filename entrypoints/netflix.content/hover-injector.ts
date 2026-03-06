@@ -1,5 +1,6 @@
 import type { RatingsData } from '../../lib/types';
 import type { Message, MessageResponse } from '../../lib/messages';
+import { escapeHtml } from '../../lib/sanitize';
 import { imdbIcon, rtIcon, mcIcon, scoreToColor } from './icons';
 
 const HOVER_BADGE_TAG = 'nfr-hover-badge';
@@ -52,19 +53,19 @@ function createBadgeHTML(data: RatingsData): string {
   const imdb = parseFloat(data.imdbRating);
   if (!isNaN(imdb)) {
     const color = scoreToColor(imdb * 10);
-    parts.push(`<span class="hb-score">${imdbIcon(14)}<span style="color:${color}">${data.imdbRating}</span></span>`);
+    parts.push(`<span class="hb-score">${imdbIcon(14)}<span style="color:${color}">${escapeHtml(data.imdbRating)}</span></span>`);
   }
 
   const rt = parseFloat(data.rottenTomatoesScore);
   if (!isNaN(rt)) {
     const color = scoreToColor(rt);
-    parts.push(`<span class="hb-score">${rtIcon(rt, 14)}<span style="color:${color}">${data.rottenTomatoesScore}%</span></span>`);
+    parts.push(`<span class="hb-score">${rtIcon(rt, 14)}<span style="color:${color}">${escapeHtml(data.rottenTomatoesScore)}%</span></span>`);
   }
 
   const mc = parseFloat(data.metacriticScore);
   if (!isNaN(mc)) {
     const color = scoreToColor(mc);
-    parts.push(`<span class="hb-score">${mcIcon(14)}<span style="color:${color}">${data.metacriticScore}</span></span>`);
+    parts.push(`<span class="hb-score">${mcIcon(14)}<span style="color:${color}">${escapeHtml(data.metacriticScore)}</span></span>`);
   }
 
   if (parts.length === 0) return '';

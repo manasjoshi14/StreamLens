@@ -1,6 +1,7 @@
-import type { RatingsData, ReviewsData, Review } from '../../lib/types';
+import type { RatingsData, Review } from '../../lib/types';
 import type { Message, MessageResponse } from '../../lib/messages';
 import { PANEL_WIDTH, REVIEW_PREVIEW_LENGTH, MAX_REVIEWS } from '../../lib/constants';
+import { escapeHtml, escapeAttr, sanitizeImdbId, sanitizeHttpsUrl } from '../../lib/sanitize';
 import { imdbIcon, rtIcon, mcIcon, scoreToColor } from './icons';
 
 const PANEL_TAG = 'nfr-review-panel';
@@ -8,6 +9,9 @@ const PANEL_TAG = 'nfr-review-panel';
 let currentPanel: HTMLElement | null = null;
 let currentShadow: ShadowRoot | null = null;
 let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
+let panelSessionId = 0;
+let shadowClickHandlerBound = false;
 
 function panelStyles(): string {
   return `
@@ -211,7 +215,7 @@ function renderRatings(data: RatingsData): string {
     items.push(`
       <div class="nfr-rating-item">
         <span class="nfr-rating-icon">${imdbIcon(16)}</span>
-        <span class="nfr-rating-value" style="color:${color}">${data.imdbRating}</span>
+        <span class="nfr-rating-value" style="color:${color}">${escapeHtml(data.imdbRating)}</span>
         <span class="nfr-rating-label">IMDb</span>
       </div>
     `);
@@ -223,7 +227,7 @@ function renderRatings(data: RatingsData): string {
     items.push(`
       <div class="nfr-rating-item">
         <span class="nfr-rating-icon">${rtIcon(rtNum, 16)}</span>
-        <span class="nfr-rating-value" style="color:${color}">${data.rottenTomatoesScore}%</span>
+        <span class="nfr-rating-value" style="color:${color}">${escapeHtml(data.rottenTomatoesScore)}%</span>
         <span class="nfr-rating-label">Rotten Tomatoes</span>
       </div>
     `);
@@ -235,7 +239,7 @@ function renderRatings(data: RatingsData): string {
     items.push(`
       <div class="nfr-rating-item">
         <span class="nfr-rating-icon">${mcIcon(16)}</span>
-        <span class="nfr-rating-value" style="color:${color}">${data.metacriticScore}</span>
+        <span class="nfr-rating-value" style="color:${color}">${escapeHtml(data.metacriticScore)}</span>
         <span class="nfr-rating-label">Metacritic</span>
       </div>
     `);
@@ -262,7 +266,8 @@ function renderReviews(reviews: Review[]): string {
 }
 
 function renderLinks(data: RatingsData): string {
-  const imdbUrl = data.imdbId ? `https://www.imdb.com/title/${data.imdbId}/` : '';
+  const imdbId = data.imdbId ? sanitizeImdbId(data.imdbId) : null;
+  const imdbUrl = imdbId ? `https://www.imdb.com/title/${imdbId}/` : '';
   const rtUrl = `https://www.google.com/search?q=${encodeURIComponent(data.title + ' ' + data.year + ' site:rottentomatoes.com')}`;
   const mcUrl = `https://www.metacritic.com/search/${encodeURIComponent(data.title)}/`;
 
@@ -270,9 +275,9 @@ function renderLinks(data: RatingsData): string {
 
   return `
     <div class="nfr-links">
-      ${imdbUrl ? `<a class="nfr-link" href="${imdbUrl}" target="_blank" rel="noopener">${imdbIcon(14)} IMDb <span class="nfr-link-arrow">↗</span></a>` : ''}
-      <a class="nfr-link" href="${rtUrl}" target="_blank" rel="noopener">${rtIcon(!isNaN(rtNum) ? rtNum : 100, 14)} Rotten Tomatoes <span class="nfr-link-arrow">↗</span></a>
-      <a class="nfr-link" href="${mcUrl}" target="_blank" rel="noopener">${mcIcon(14)} Metacritic <span class="nfr-link-arrow">↗</span></a>
+      ${imdbUrl ? `<a class="nfr-link" href="${escapeAttr(imdbUrl)}" target="_blank" rel="noopener">${imdbIcon(14)} IMDb <span class="nfr-link-arrow">↗</span></a>` : ''}
+      <a class="nfr-link" href="${escapeAttr(rtUrl)}" target="_blank" rel="noopener">${rtIcon(!isNaN(rtNum) ? rtNum : 100, 14)} Rotten Tomatoes <span class="nfr-link-arrow">↗</span></a>
+      <a class="nfr-link" href="${escapeAttr(mcUrl)}" target="_blank" rel="noopener">${mcIcon(14)} Metacritic <span class="nfr-link-arrow">↗</span></a>
     </div>
   `;
 }
@@ -287,27 +292,57 @@ function renderLoading(): string {
   `;
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function handleShadowClick(e: Event): void {
+  const target = e.target as HTMLElement;
+  if (!target.classList.contains('nfr-read-more')) return;
+
+  const review = target.previousElementSibling as HTMLElement | null;
+  if (review && review.dataset.truncated === 'true') {
+    review.textContent = review.dataset.full || '';
+    review.dataset.truncated = 'false';
+    target.textContent = 'Show less';
+    return;
+  }
+
+  if (review) {
+    const { text } = truncateReview(review.dataset.full || '');
+    review.textContent = text;
+    review.dataset.truncated = 'true';
+    target.textContent = 'Read more';
+  }
 }
 
-function escapeAttr(str: string): string {
-  return escapeHtml(str).replace(/'/g, '&#39;');
+function renderReviewsUnavailable(section: HTMLElement): void {
+  section.innerHTML = `
+    <div class="nfr-section-title">Reviews</div>
+    <div class="nfr-no-reviews">Reviews unavailable</div>
+  `;
 }
 
 export function openPanel(data: RatingsData): void {
+  panelSessionId++;
+  const sessionId = panelSessionId;
+
+  if (closeTimer) {
+    clearTimeout(closeTimer);
+    closeTimer = null;
+  }
+
   if (!currentPanel) {
     currentPanel = document.createElement(PANEL_TAG);
     document.body.appendChild(currentPanel);
     currentShadow = currentPanel.attachShadow({ mode: 'open' });
+    shadowClickHandlerBound = false;
   }
 
-  const posterHtml = data.poster && data.poster !== 'N/A'
-    ? `<img class="nfr-poster" src="${escapeAttr(data.poster)}" alt="${escapeAttr(data.title)}">`
+  if (currentShadow && !shadowClickHandlerBound) {
+    currentShadow.addEventListener('click', handleShadowClick);
+    shadowClickHandlerBound = true;
+  }
+
+  const posterUrl = data.poster && data.poster !== 'N/A' ? sanitizeHttpsUrl(data.poster) : null;
+  const posterHtml = posterUrl
+    ? `<img class="nfr-poster" src="${escapeAttr(posterUrl)}" alt="${escapeAttr(data.title)}" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous">`
     : '';
 
   currentShadow!.innerHTML = `
@@ -317,10 +352,10 @@ export function openPanel(data: RatingsData): void {
         <div>
           <h2 class="nfr-title">${escapeHtml(data.title)}</h2>
           <div class="nfr-meta">
-            ${data.year && data.year !== 'N/A' ? `<span>${data.year}</span>` : ''}
-            ${data.rated && data.rated !== 'N/A' ? `<span>${data.rated}</span>` : ''}
-            ${data.runtime && data.runtime !== 'N/A' ? `<span>${data.runtime}</span>` : ''}
-            ${data.genre && data.genre !== 'N/A' ? `<span>${data.genre}</span>` : ''}
+            ${data.year && data.year !== 'N/A' ? `<span>${escapeHtml(data.year)}</span>` : ''}
+            ${data.rated && data.rated !== 'N/A' ? `<span>${escapeHtml(data.rated)}</span>` : ''}
+            ${data.runtime && data.runtime !== 'N/A' ? `<span>${escapeHtml(data.runtime)}</span>` : ''}
+            ${data.genre && data.genre !== 'N/A' ? `<span>${escapeHtml(data.genre)}</span>` : ''}
           </div>
         </div>
         <button class="nfr-close" id="close-btn">×</button>
@@ -350,23 +385,6 @@ export function openPanel(data: RatingsData): void {
 
   currentShadow!.getElementById('close-btn')!.addEventListener('click', closePanel);
 
-  currentShadow!.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.classList.contains('nfr-read-more')) {
-      const review = target.previousElementSibling as HTMLElement;
-      if (review && review.dataset.truncated === 'true') {
-        review.textContent = review.dataset.full || '';
-        review.dataset.truncated = 'false';
-        target.textContent = 'Show less';
-      } else if (review) {
-        const { text } = truncateReview(review.dataset.full || '');
-        review.textContent = text;
-        review.dataset.truncated = 'true';
-        target.textContent = 'Read more';
-      }
-    }
-  });
-
   if (outsideClickHandler) {
     document.removeEventListener('click', outsideClickHandler);
   }
@@ -380,10 +398,10 @@ export function openPanel(data: RatingsData): void {
     if (outsideClickHandler) document.addEventListener('click', outsideClickHandler);
   }, 0);
 
-  fetchAndRenderReviews(data);
+  fetchAndRenderReviews(data, sessionId);
 }
 
-async function fetchAndRenderReviews(data: RatingsData): Promise<void> {
+async function fetchAndRenderReviews(data: RatingsData, sessionId: number): Promise<void> {
   try {
     const message: Message = {
       type: 'GET_REVIEWS',
@@ -396,7 +414,7 @@ async function fetchAndRenderReviews(data: RatingsData): Promise<void> {
 
     const response = await browser.runtime.sendMessage(message) as MessageResponse;
 
-    if (!currentShadow) return;
+    if (!currentShadow || sessionId !== panelSessionId) return;
     const section = currentShadow.getElementById('reviews-section');
     if (!section) return;
 
@@ -405,20 +423,15 @@ async function fetchAndRenderReviews(data: RatingsData): Promise<void> {
         <div class="nfr-section-title">Reviews</div>
         ${renderReviews(response.data.reviews)}
       `;
-    } else {
-      section.innerHTML = `
-        <div class="nfr-section-title">Reviews</div>
-        <div class="nfr-no-reviews">Reviews unavailable</div>
-      `;
+      return;
     }
+
+    renderReviewsUnavailable(section);
   } catch {
-    if (!currentShadow) return;
+    if (!currentShadow || sessionId !== panelSessionId) return;
     const section = currentShadow.getElementById('reviews-section');
     if (section) {
-      section.innerHTML = `
-        <div class="nfr-section-title">Reviews</div>
-        <div class="nfr-no-reviews">Reviews unavailable</div>
-      `;
+      renderReviewsUnavailable(section);
     }
   }
 }
@@ -428,17 +441,31 @@ export function closePanel(): void {
     document.removeEventListener('click', outsideClickHandler);
     outsideClickHandler = null;
   }
-  if (currentShadow) {
-    const panel = currentShadow.getElementById('panel');
-    if (panel) {
-      panel.classList.remove('open');
-      setTimeout(() => {
-        currentPanel?.remove();
-        currentPanel = null;
-        currentShadow = null;
-      }, 300);
-    }
+
+  if (closeTimer) {
+    clearTimeout(closeTimer);
+    closeTimer = null;
   }
+
+  if (!currentShadow) return;
+
+  const panel = currentShadow.getElementById('panel');
+  if (!panel) {
+    currentPanel?.remove();
+    currentPanel = null;
+    currentShadow = null;
+    shadowClickHandlerBound = false;
+    return;
+  }
+
+  panel.classList.remove('open');
+  closeTimer = setTimeout(() => {
+    currentPanel?.remove();
+    currentPanel = null;
+    currentShadow = null;
+    closeTimer = null;
+    shadowClickHandlerBound = false;
+  }, 300);
 }
 
 export function isPanelOpen(): boolean {

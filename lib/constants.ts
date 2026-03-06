@@ -6,6 +6,7 @@ export const SCROLL_DEBOUNCE_MS = 500;
 export const MUTATION_DEBOUNCE_MS = 150;
 export const INTERSECTION_ROOT_MARGIN = '200px';
 export const LEVENSHTEIN_CONFIDENCE_THRESHOLD = 0.8;
+export const MIN_TITLE_MATCH_THRESHOLD = 0.6;
 export const MAX_REVIEWS = 10;
 export const REVIEW_PREVIEW_LENGTH = 200;
 export const PANEL_WIDTH = 400;

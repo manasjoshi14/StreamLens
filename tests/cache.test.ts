@@ -129,4 +129,13 @@ describe('no-match cache', () => {
     // The memory entry is also expired (same timestamp object)
     expect(getNoMatch('expired-nm')).toBe(false);
   });
+
+  it('evicts oldest no-match memory entries with LRU cap', async () => {
+    for (let i = 0; i < 501; i++) {
+      await setNoMatch(`nm-${i}`);
+    }
+
+    expect(getNoMatch('nm-0')).toBe(false);
+    expect(getNoMatch('nm-500')).toBe(true);
+  });
 });

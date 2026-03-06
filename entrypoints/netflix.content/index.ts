@@ -3,6 +3,7 @@ import { extractTileInfo } from './title-extractor';
 import { injectBadge, updateBadge } from './overlay-injector';
 import { openPanel, setupPanelKeyboard } from './review-panel';
 import { createHoverObserver } from './hover-injector';
+import './style.css';
 import { SCROLL_DEBOUNCE_MS, INTERSECTION_ROOT_MARGIN } from '../../lib/constants';
 import type { RatingsData } from '../../lib/types';
 import type { Message, MessageResponse } from '../../lib/messages';
@@ -12,7 +13,6 @@ export default defineContentScript({
   matches: ['*://*.netflix.com/*'],
   runAt: 'document_idle',
   cssInjectionMode: 'manifest',
-  css: ['./style.css'],
 
   async main(ctx) {
     const ready = await isSetupComplete();
@@ -53,10 +53,17 @@ export default defineContentScript({
 
     async function fetchVisibleTiles(): Promise<void> {
       pendingFetch = true;
-      const tiles = Array.from(visibleTiles);
+      try {
+        const staleTiles = Array.from(visibleTiles).filter(tile => !(tile as HTMLElement).isConnected);
+        for (const stale of staleTiles) {
+          visibleTiles.delete(stale);
+        }
 
-      await Promise.all(tiles.map(tile => fetchRatingForTile(tile)));
-      pendingFetch = false;
+        const tiles = Array.from(visibleTiles);
+        await Promise.all(tiles.map(tile => fetchRatingForTile(tile)));
+      } finally {
+        pendingFetch = false;
+      }
     }
 
     async function fetchRatingForTile(tile: Element): Promise<void> {
@@ -120,7 +127,7 @@ export default defineContentScript({
       processTiles(initialTiles);
     }
 
-    createTileObserver((tiles) => {
+    const tileObserver = createTileObserver((tiles) => {
       processTiles(tiles);
     });
 
@@ -136,6 +143,9 @@ export default defineContentScript({
     });
 
     ctx.onInvalidated(() => {
+      if (scrollTimer) clearTimeout(scrollTimer);
+      visibleTiles.clear();
+      tileObserver.disconnect();
       intersectionObserver.disconnect();
       hoverObserver.disconnect();
     });

@@ -20,7 +20,7 @@ Built collaboratively with [Claude Code](https://claude.ai/claude-code).
 - pnpm (`npm install -g pnpm`)
 - Free API keys:
   - [OMDb API](https://www.omdbapi.com/apikey.aspx) (1,000 requests/day)
-  - [TMDB API](https://www.themoviedb.org/settings/api) (free for non-commercial)
+  - [TMDB API](https://www.themoviedb.org/settings/api) (optional, used for review previews)
 
 ### Setup
 

@@ -171,4 +171,53 @@ describe('handleGetRatings', () => {
     }
     expect(mockStorage['nomatch:broken movie']).toBeUndefined();
   });
+
+  it('deduplicates concurrent identical requests', async () => {
+    let resolveFetch: ((value: RatingsData | null) => void) | undefined;
+    mockFetchRatings.mockImplementation(() => new Promise<RatingsData | null>(resolve => {
+      resolveFetch = resolve;
+    }));
+
+    const message: Message = {
+      type: 'GET_RATINGS',
+      payload: { title: 'Inception', year: '2010' },
+    };
+
+    const first = sendMessage(message);
+    const second = sendMessage(message);
+
+    for (let i = 0; i < 10 && mockFetchRatings.mock.calls.length === 0; i++) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    expect(mockFetchRatings).toHaveBeenCalledTimes(1);
+    if (!resolveFetch) {
+      throw new Error('fetchRatings was not started');
+    }
+    resolveFetch(mockRatings);
+
+    const [resp1, resp2] = await Promise.all([first, second]);
+    expect(resp1).toEqual(resp2);
+  });
+});
+
+describe('handleMessage safety', () => {
+  beforeEach(async () => {
+    mockFetchRatings.mockReset();
+    mockFetchReviews.mockReset();
+    for (const key of Object.keys(mockStorage)) {
+      delete mockStorage[key];
+    }
+    await clearAllCache();
+  });
+
+  it('returns fallback response instead of hanging when processing throws', async () => {
+    mockBrowser.storage.local.get.mockRejectedValueOnce(new Error('storage down'));
+
+    const response = await sendMessage({ type: 'GET_STATS' });
+    expect(response.type).toBe('STATS');
+    if (response.type === 'STATS') {
+      expect(response.data.cacheEntries).toBe(0);
+      expect(response.data.dailyCounter.omdbCalls).toBe(0);
+    }
+  });
 });

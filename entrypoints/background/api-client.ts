@@ -28,6 +28,17 @@ interface OmdbResponse {
   }>;
 }
 
+async function fetchJsonOrThrow<T>(url: string, service: 'OMDb' | 'TMDB'): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw new Error('rate-limited');
+    }
+    throw new Error(`${service} request failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
 function checkOmdbError(data: OmdbResponse): void {
   if (data.Response === 'False' && data.Error) {
     const err = data.Error.toLowerCase();
@@ -80,9 +91,9 @@ export async function fetchRatings(title: string, year?: string): Promise<Rating
   const params = new URLSearchParams({ t: title, apikey: omdbKey });
   if (year) params.set('y', year);
 
+  // Best-effort quota guard: storage-backed counter is not strongly atomic.
   await incrementDailyCounter();
-  const response = await fetch(`${OMDB_BASE_URL}?${params}`);
-  const data: OmdbResponse = await response.json();
+  const data = await fetchJsonOrThrow<OmdbResponse>(`${OMDB_BASE_URL}?${params}`, 'OMDb');
 
   checkOmdbError(data);
 
@@ -101,8 +112,7 @@ export async function fetchRatings(title: string, year?: string): Promise<Rating
   if (year) searchParams.set('y', year);
 
   await incrementDailyCounter();
-  const searchResponse = await fetch(`${OMDB_BASE_URL}?${searchParams}`);
-  const searchData: OmdbResponse = await searchResponse.json();
+  const searchData = await fetchJsonOrThrow<OmdbResponse>(`${OMDB_BASE_URL}?${searchParams}`, 'OMDb');
 
   checkOmdbError(searchData);
 
@@ -127,8 +137,10 @@ export async function fetchRatings(title: string, year?: string): Promise<Rating
   }
 
   await incrementDailyCounter();
-  const detailResponse = await fetch(`${OMDB_BASE_URL}?${new URLSearchParams({ i: best.imdbId, apikey: omdbKey })}`);
-  const detailData: OmdbResponse = await detailResponse.json();
+  const detailData = await fetchJsonOrThrow<OmdbResponse>(
+    `${OMDB_BASE_URL}?${new URLSearchParams({ i: best.imdbId, apikey: omdbKey })}`,
+    'OMDb'
+  );
 
   checkOmdbError(detailData);
 
@@ -145,10 +157,10 @@ export async function fetchReviews(imdbId: string, mediaType: 'movie' | 'series'
   if (!tmdbKey) throw new Error('TMDB API key not configured');
 
   // Find TMDB ID from IMDB ID
-  const findResponse = await fetch(
-    `${TMDB_BASE_URL}/find/${imdbId}?api_key=${tmdbKey}&external_source=imdb_id`
+  const findData = await fetchJsonOrThrow<any>(
+    `${TMDB_BASE_URL}/find/${imdbId}?api_key=${tmdbKey}&external_source=imdb_id`,
+    'TMDB'
   );
-  const findData = await findResponse.json();
 
   let tmdbId: number | null = null;
   let resolvedType: 'movie' | 'tv' = mediaType === 'series' ? 'tv' : 'movie';
@@ -169,10 +181,10 @@ export async function fetchReviews(imdbId: string, mediaType: 'movie' | 'series'
     return { reviews: [], totalResults: 0 };
   }
 
-  const reviewsResponse = await fetch(
-    `${TMDB_BASE_URL}/${resolvedType}/${tmdbId}/reviews?api_key=${tmdbKey}`
+  const reviewsData = await fetchJsonOrThrow<any>(
+    `${TMDB_BASE_URL}/${resolvedType}/${tmdbId}/reviews?api_key=${tmdbKey}`,
+    'TMDB'
   );
-  const reviewsData = await reviewsResponse.json();
 
   const reviews: Review[] = (reviewsData.results || []).map((r: any) => ({
     author: r.author || 'Anonymous',

@@ -7,11 +7,36 @@ const pendingRequests = new Map<string, Promise<MessageResponse>>();
 
 export function handleMessage(
   message: Message,
-  _sender: browser.Runtime.MessageSender,
+  _sender: unknown,
   sendResponse: (response: MessageResponse) => void,
 ): true {
-  processMessage(message).then(sendResponse);
+  processMessage(message)
+    .then(sendResponse)
+    .catch((err) => {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      console.debug('[NFR] message handler error:', message.type, errorMsg);
+      sendResponse(buildErrorResponse(message, errorMsg));
+    });
   return true; // keep message channel open for async response
+}
+
+function buildErrorResponse(message: Message, errorMsg: string): MessageResponse {
+  switch (message.type) {
+    case 'GET_REVIEWS':
+      return { type: 'REVIEWS', data: null, error: errorMsg };
+    case 'GET_STATS':
+      return {
+        type: 'STATS',
+        data: {
+          cacheEntries: 0,
+          dailyCounter: { date: new Date().toISOString().split('T')[0], omdbCalls: 0 },
+        },
+      };
+    case 'CLEAR_CACHE':
+      return { type: 'CACHE_CLEARED' };
+    default:
+      return { type: 'RATINGS', data: null, status: 'error', error: errorMsg };
+  }
 }
 
 async function processMessage(message: Message): Promise<MessageResponse> {

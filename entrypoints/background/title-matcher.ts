@@ -1,4 +1,4 @@
-import { LEVENSHTEIN_CONFIDENCE_THRESHOLD } from '../../lib/constants';
+import { LEVENSHTEIN_CONFIDENCE_THRESHOLD, MIN_TITLE_MATCH_THRESHOLD } from '../../lib/constants';
 
 export function levenshteinDistance(a: string, b: string): number {
   const m = a.length;
@@ -70,6 +70,10 @@ export function pickBestMatch(query: string, queryYear: string | undefined, resu
       bestScore = score;
       best = result;
     }
+  }
+
+  if (!best || bestScore < MIN_TITLE_MATCH_THRESHOLD) {
+    return null;
   }
 
   return best;
