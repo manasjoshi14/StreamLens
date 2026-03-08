@@ -17,7 +17,7 @@ export function handleMessage(
       console.debug('[NFR] message handler error:', message.type, errorMsg);
       sendResponse(buildErrorResponse(message, errorMsg));
     });
-  return true; // keep message channel open for async response
+  return true;
 }
 
 function buildErrorResponse(message: Message, errorMsg: string): MessageResponse {
@@ -59,25 +59,22 @@ async function processMessage(message: Message): Promise<MessageResponse> {
 }
 
 async function handleGetRatings(
-  payload: { title: string; year?: string; netflixId?: string }
+  payload: { providerId: string; title: string; year?: string; contentId?: string }
 ): Promise<MessageResponse> {
-  const key = getCacheKey(payload.netflixId, payload.title, payload.year);
+  const key = getCacheKey(payload.providerId, payload.contentId, payload.title, payload.year);
 
-  // Check positive cache
   const cached = await getRating(key);
   if (cached) {
     console.debug('[NFR] cache hit:', key);
     return { type: 'RATINGS', data: cached, status: 'ok' };
   }
 
-  // Check no-match cache
   const noMatch = await getNoMatchFull(key);
   if (noMatch) {
     console.debug('[NFR] no-match cache hit:', key);
     return { type: 'RATINGS', data: null, status: 'no-match' };
   }
 
-  // Deduplicate in-flight requests
   const existing = pendingRequests.get(key);
   if (existing) {
     return existing;
@@ -90,9 +87,8 @@ async function handleGetRatings(
       if (data) {
         await setRating(key, data);
 
-        // Also cache by Netflix ID if we used title-based key, and vice versa
-        if (payload.netflixId) {
-          const titleKey = getCacheKey(undefined, payload.title, payload.year);
+        if (payload.contentId) {
+          const titleKey = getCacheKey(payload.providerId, undefined, payload.title, payload.year);
           await setRating(titleKey, data);
         }
 
@@ -101,8 +97,8 @@ async function handleGetRatings(
       }
       console.debug('[NFR] API result: no match for', payload.title);
       await setNoMatch(key);
-      if (payload.netflixId) {
-        const titleKey = getCacheKey(undefined, payload.title, payload.year);
+      if (payload.contentId) {
+        const titleKey = getCacheKey(payload.providerId, undefined, payload.title, payload.year);
         await setNoMatch(titleKey);
       }
       return { type: 'RATINGS', data: null, status: 'no-match' };

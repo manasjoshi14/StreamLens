@@ -8,10 +8,9 @@
   </head>
   <body>
     <div id="app">
-      <!-- Wizard -->
       <div id="wizard" class="hidden">
         <h1>StreamLens</h1>
-        <p class="subtitle">Set up your API keys to get started</p>
+        <p class="subtitle">Set up your API keys to enable ratings across supported streaming sites</p>
 
         <div id="wizard-step-1" class="wizard-step">
           <h2>Step 1: OMDb API Key</h2>
@@ -33,10 +32,12 @@
         <div id="wizard-error" class="error hidden"></div>
       </div>
 
-      <!-- Main -->
       <div id="main" class="hidden">
         <div class="header">
-          <h1>StreamLens</h1>
+          <div>
+            <h1>StreamLens</h1>
+            <p class="subtitle">Auto-detects supported streaming providers</p>
+          </div>
           <label class="toggle">
             <input type="checkbox" id="toggle-enabled" checked />
             <span class="toggle-slider"></span>
@@ -63,7 +64,6 @@
           <button id="edit-keys" class="btn secondary">Edit API Keys</button>
         </div>
 
-        <!-- Key Editor -->
         <div id="key-editor" class="hidden">
           <div class="field">
             <label>OMDb API Key</label>

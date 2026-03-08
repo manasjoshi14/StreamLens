@@ -1,5 +1,5 @@
 import type { CacheEntry, NoMatchEntry, RatingsData } from '../../lib/types';
-import { LRU_MAX_ENTRIES, CACHE_TTL_MS, STORAGE_KEYS } from '../../lib/constants';
+import { LRU_MAX_ENTRIES, CACHE_TTL_MS } from '../../lib/constants';
 
 const memoryCache = new Map<string, CacheEntry<RatingsData>>();
 const noMatchMemoryCache = new Map<string, NoMatchEntry>();
@@ -14,10 +14,10 @@ function setNoMatchInMemory(key: string, entry: NoMatchEntry): void {
   noMatchMemoryCache.set(key, entry);
 }
 
-export function getCacheKey(netflixId?: string, title?: string, year?: string): string {
-  if (netflixId) return `nfx:${netflixId}`;
+export function getCacheKey(providerId: string, contentId?: string, title?: string, year?: string): string {
+  if (contentId) return `${providerId}:${contentId}`;
   const normalizedTitle = (title || '').toLowerCase().trim();
-  return year ? `${normalizedTitle}:${year}` : normalizedTitle;
+  return year ? `${providerId}:${normalizedTitle}:${year}` : `${providerId}:${normalizedTitle}`;
 }
 
 export function getFromMemory(key: string): RatingsData | null {
@@ -29,7 +29,6 @@ export function getFromMemory(key: string): RatingsData | null {
     return null;
   }
 
-  // Move to end (LRU refresh)
   memoryCache.delete(key);
   memoryCache.set(key, entry);
   return entry.data;
@@ -56,7 +55,6 @@ export async function getFromStorage(key: string): Promise<RatingsData | null> {
       return null;
     }
 
-    // Populate memory cache on read
     setInMemory(key, entry.data);
     return entry.data;
   } catch {
@@ -70,18 +68,14 @@ export async function setInStorage(key: string, data: RatingsData): Promise<void
       [`cache:${key}`]: { data, timestamp: Date.now() } satisfies CacheEntry<RatingsData>,
     });
   } catch {
-    // Storage quota exceeded — silently fail, memory cache still works
+    // Storage quota exceeded; memory cache still works.
   }
 }
 
 export async function getRating(key: string): Promise<RatingsData | null> {
-  // Tier 1: Memory
   const mem = getFromMemory(key);
   if (mem) return mem;
-
-  // Tier 2: Storage
-  const stored = await getFromStorage(key);
-  return stored;
+  return getFromStorage(key);
 }
 
 export async function setRating(key: string, data: RatingsData): Promise<void> {
@@ -96,7 +90,6 @@ export function getNoMatch(key: string): boolean {
     noMatchMemoryCache.delete(key);
     return false;
   }
-  // Move to end (LRU refresh)
   noMatchMemoryCache.delete(key);
   noMatchMemoryCache.set(key, entry);
   return true;

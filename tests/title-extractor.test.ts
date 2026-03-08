@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeTitleText } from '../entrypoints/netflix.content/title-extractor';
+import { normalizeTitleText } from '../entrypoints/streaming.content/providers/shared';
 
 describe('normalizeTitleText', () => {
   it('extracts release year in parentheses', () => {
