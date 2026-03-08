@@ -50,29 +50,24 @@ const mockRatings: RatingsData = {
 };
 
 describe('getCacheKey', () => {
-  it('uses netflix ID when available', () => {
-    expect(getCacheKey('12345')).toBe('nfx:12345');
+  it('uses provider and content ID when available', () => {
+    expect(getCacheKey('netflix', '12345')).toBe('netflix:12345');
   });
 
-  it('uses normalized title and year', () => {
-    expect(getCacheKey(undefined, 'Inception', '2010')).toBe('inception:2010');
+  it('uses provider, normalized title, and year', () => {
+    expect(getCacheKey('prime', undefined, 'Inception', '2010')).toBe('prime:inception:2010');
   });
 
-  it('uses normalized title only when no year', () => {
-    expect(getCacheKey(undefined, 'Inception')).toBe('inception');
+  it('uses provider and normalized title only when no year', () => {
+    expect(getCacheKey('netflix', undefined, 'Inception')).toBe('netflix:inception');
   });
 
-  it('handles leading/trailing spaces', () => {
-    expect(getCacheKey(undefined, '  Inception  ', '2010')).toBe('inception:2010');
+  it('handles leading and trailing spaces', () => {
+    expect(getCacheKey('prime', undefined, '  Inception  ', '2010')).toBe('prime:inception:2010');
   });
 });
 
 describe('memory cache', () => {
-  beforeEach(() => {
-    // Clear by setting and getting a fresh state — no direct clear exposed
-    // We'll just test fresh entries
-  });
-
   it('stores and retrieves from memory', () => {
     setInMemory('test-key', mockRatings);
     const result = getFromMemory('test-key');
@@ -87,9 +82,7 @@ describe('memory cache', () => {
     for (let i = 0; i < 501; i++) {
       setInMemory(`lru-test-${i}`, { ...mockRatings, title: `Movie ${i}` });
     }
-    // First entry should be evicted
     expect(getFromMemory('lru-test-0')).toBeNull();
-    // Last entry should exist
     expect(getFromMemory('lru-test-500')).not.toBeNull();
   });
 });
@@ -120,13 +113,9 @@ describe('no-match cache', () => {
 
   it('expires after TTL', async () => {
     await setNoMatch('expired-nm');
-    // Manually expire the entry
     const key = 'nomatch:expired-nm';
     mockStorage[key].timestamp = Date.now() - CACHE_TTL_MS - 1;
-    // Memory cache also needs expiring — getNoMatch reads from memory
-    // Call getNoMatchFull which checks storage after memory miss on expiry
-    const result = await getNoMatchFull('expired-nm');
-    // The memory entry is also expired (same timestamp object)
+    await getNoMatchFull('expired-nm');
     expect(getNoMatch('expired-nm')).toBe(false);
   });
 

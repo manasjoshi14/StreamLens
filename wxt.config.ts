@@ -4,7 +4,7 @@ export default defineConfig({
   manifestVersion: 3,
   manifest: {
     name: 'StreamLens',
-    description: 'IMDB & Rotten Tomatoes ratings on Netflix tiles',
+    description: 'Ratings overlays for supported streaming platforms',
     version: '1.0.0',
     permissions: ['storage'],
     host_permissions: [
@@ -13,6 +13,6 @@ export default defineConfig({
     ],
   },
   webExt: {
-    startUrls: ['https://www.netflix.com/browse'],
+    startUrls: ['https://www.netflix.com/browse', 'https://www.primevideo.com/', 'https://www.hotstar.com/in'],
   },
 });

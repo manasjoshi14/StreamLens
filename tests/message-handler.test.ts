@@ -81,7 +81,7 @@ describe('handleGetRatings', () => {
     mockFetchRatings.mockResolvedValue(mockRatings);
     const resp = await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Inception', year: '2010' },
+      payload: { providerId: 'netflix', title: 'Inception', year: '2010' },
     });
     expect(resp.type).toBe('RATINGS');
     if (resp.type === 'RATINGS') {
@@ -90,21 +90,21 @@ describe('handleGetRatings', () => {
     }
   });
 
-  it('caches positive result in storage', async () => {
+  it('caches positive result in storage per provider', async () => {
     mockFetchRatings.mockResolvedValue(mockRatings);
     await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Inception', year: '2010' },
+      payload: { providerId: 'netflix', title: 'Inception', year: '2010' },
     });
-    expect(mockStorage['cache:inception:2010']).toBeDefined();
-    expect(mockStorage['cache:inception:2010'].data).toEqual(mockRatings);
+    expect(mockStorage['cache:netflix:inception:2010']).toBeDefined();
+    expect(mockStorage['cache:netflix:inception:2010'].data).toEqual(mockRatings);
   });
 
   it('returns no-match status when API finds nothing', async () => {
     mockFetchRatings.mockResolvedValue(null);
     const resp = await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Nonexistent Movie XYZ' },
+      payload: { providerId: 'prime', title: 'Nonexistent Movie XYZ' },
     });
     expect(resp.type).toBe('RATINGS');
     if (resp.type === 'RATINGS') {
@@ -113,29 +113,27 @@ describe('handleGetRatings', () => {
     }
   });
 
-  it('caches no-match result', async () => {
+  it('caches no-match result per provider', async () => {
     mockFetchRatings.mockResolvedValue(null);
     await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Nonexistent Movie XYZ' },
+      payload: { providerId: 'prime', title: 'Nonexistent Movie XYZ' },
     });
-    expect(mockStorage['nomatch:nonexistent movie xyz']).toBeDefined();
-    expect(mockStorage['nomatch:nonexistent movie xyz'].noMatch).toBe(true);
+    expect(mockStorage['nomatch:prime:nonexistent movie xyz']).toBeDefined();
+    expect(mockStorage['nomatch:prime:nonexistent movie xyz'].noMatch).toBe(true);
   });
 
   it('returns cached no-match without calling API', async () => {
     mockFetchRatings.mockResolvedValue(null);
-    // First call — hits API
     await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Ghost Title' },
+      payload: { providerId: 'prime', title: 'Ghost Title' },
     });
     expect(mockFetchRatings).toHaveBeenCalledTimes(1);
 
-    // Second call — should hit no-match cache
     const resp = await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Ghost Title' },
+      payload: { providerId: 'prime', title: 'Ghost Title' },
     });
     expect(mockFetchRatings).toHaveBeenCalledTimes(1);
     if (resp.type === 'RATINGS') {
@@ -147,29 +145,28 @@ describe('handleGetRatings', () => {
     mockFetchRatings.mockRejectedValue(new Error('rate-limited'));
     const resp = await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Some Movie' },
+      payload: { providerId: 'netflix', title: 'Some Movie' },
     });
     if (resp.type === 'RATINGS') {
       expect(resp.status).toBe('rate-limited');
       expect(resp.data).toBeNull();
     }
-    // Should NOT cache
-    expect(mockStorage['nomatch:some movie']).toBeUndefined();
-    expect(mockStorage['cache:some movie']).toBeUndefined();
+    expect(mockStorage['nomatch:netflix:some movie']).toBeUndefined();
+    expect(mockStorage['cache:netflix:some movie']).toBeUndefined();
   });
 
   it('returns error status without caching', async () => {
     mockFetchRatings.mockRejectedValue(new Error('Network error'));
     const resp = await sendMessage({
       type: 'GET_RATINGS',
-      payload: { title: 'Broken Movie' },
+      payload: { providerId: 'prime', title: 'Broken Movie' },
     });
     if (resp.type === 'RATINGS') {
       expect(resp.status).toBe('error');
       expect(resp.data).toBeNull();
       expect(resp.error).toBe('Network error');
     }
-    expect(mockStorage['nomatch:broken movie']).toBeUndefined();
+    expect(mockStorage['nomatch:prime:broken movie']).toBeUndefined();
   });
 
   it('deduplicates concurrent identical requests', async () => {
@@ -180,7 +177,7 @@ describe('handleGetRatings', () => {
 
     const message: Message = {
       type: 'GET_RATINGS',
-      payload: { title: 'Inception', year: '2010' },
+      payload: { providerId: 'netflix', title: 'Inception', year: '2010' },
     };
 
     const first = sendMessage(message);
@@ -190,9 +187,7 @@ describe('handleGetRatings', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
     }
     expect(mockFetchRatings).toHaveBeenCalledTimes(1);
-    if (!resolveFetch) {
-      throw new Error('fetchRatings was not started');
-    }
+    if (!resolveFetch) throw new Error('fetchRatings was not started');
     resolveFetch(mockRatings);
 
     const [resp1, resp2] = await Promise.all([first, second]);

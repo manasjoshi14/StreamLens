@@ -1,7 +1,7 @@
 import type { RatingsData, ReviewsData, DailyCounter } from './types';
 
 export type Message =
-  | { type: 'GET_RATINGS'; payload: { title: string; year?: string; netflixId?: string } }
+  | { type: 'GET_RATINGS'; payload: { providerId: string; title: string; year?: string; contentId?: string } }
   | { type: 'GET_REVIEWS'; payload: { title: string; imdbId?: string; mediaType?: 'movie' | 'series' } }
   | { type: 'CLEAR_CACHE' }
   | { type: 'GET_STATS' };

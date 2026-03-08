@@ -49,5 +49,25 @@ export type BadgeState = 'loading' | 'rated' | 'na' | 'low-confidence' | 'error'
 export interface TileInfo {
   title: string;
   year?: string;
-  netflixId?: string;
+  contentId?: string;
+}
+
+export interface DetailInfo {
+  title: string;
+  contentId?: string;
+  context?: string;
+}
+
+export interface StreamingProvider {
+  id: string;
+  label: string;
+  matches: string[];
+  tileSelectors: readonly string[];
+  detailSelectors: readonly string[];
+  isActivePage(location: Location): boolean;
+  findTileElements?(root: Element | Document): Element[];
+  extractTileInfo(element: Element): TileInfo | null;
+  extractDetailInfo(element: Element): DetailInfo | null;
+  findDetailBadgeAnchor(element: Element): Element | null;
+  getDetailCooldownMs?(detail: DetailInfo): number;
 }
